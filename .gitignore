@@ -154,15 +154,22 @@ dmypy.json
 .idea/
 .idea/**
 
-## File-based project format:
+# File-based project format:
 *.iws
 
-## Scratch Files
+
+### Secret Sauce
+# Scratch Files
 /scratch.txt
 /scratch.py
 /tmp/
 /tmp/**
 
 # Credential Files
-*service-account.json
+*account.json
 *confidential*
+*credential*
+*creds*
+
+# Allow Sample Files (for configs, credentials, etc.)
+!*sample*

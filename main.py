@@ -14,6 +14,20 @@ class CurrentScreen(Enum):
     ONLINE_SCREEN = auto()
     CUSTOM_SCREEN = auto()
     ENTER_KEY = auto()
+    CONNECTING = auto()
+
+
+SCREENSHOTS = {
+    'KQB000-push-button-to-start.png': CurrentScreen.PRESS_BUTTON,
+    'KQB001a-online-focused.png': CurrentScreen.MAIN_SCREEN,
+    'KQB001b-online-not-focused.png': CurrentScreen.MAIN_SCREEN,
+    'KQB002a-custom-focused.png': CurrentScreen.ONLINE_SCREEN,
+    'KQB002b-custom-not-focused.png': CurrentScreen.ONLINE_SCREEN,
+    'KQB003a-spectate-focused.png': CurrentScreen.CUSTOM_SCREEN,
+    'KQB003b-spectate-not-focused.png': CurrentScreen.CUSTOM_SCREEN,
+    'KQB004-enter-key.png': CurrentScreen.ENTER_KEY,
+    'KQB005-connecting-to-custom.png': CurrentScreen.CONNECTING,
+}
 
 
 def get_window_name(handle=None) -> str:
@@ -97,17 +111,34 @@ def spam_left_then_down(n_times: int = 10, interval: float = 0.05):
     spam_key('down', n_times, interval)
 
 
-def get_screen() -> CurrentScreen:
-    if locate_center('KQB000-push-button-to-start.png'):
-        return CurrentScreen.PRESS_BUTTON
-    if locate_center('KQB001a-online-focused.png') or locate_center('KQB001b-online-not-focused.png'):
-        return CurrentScreen.MAIN_SCREEN
-    if locate_center('KQB002a-custom-focused.png') or locate_center('KQB002b-custom-not-focused.png'):
-        return CurrentScreen.ONLINE_SCREEN
-    if locate_center('KQB003a-spectate-focused.png') or locate_center('KQB003b-spectate-not-focused.png'):
-        return CurrentScreen.CUSTOM_SCREEN
-    if locate_center('KQB004-enter-key.png'):
-        return CurrentScreen.ENTER_KEY
+def get_screen(
+        confidence: float = 1.0,
+        min_confidence: float = 0.7,
+        confidence_interval: float = 0.05,
+        sleep_interval: float = 0.5,
+) -> CurrentScreen:
+    """
+    iterates through the screenshots trying to determine the correct current screen
+    If a match is found, it returns the corresponding CurrentScreen enum
+    Otherwise, the confidence is lowered for another pass until a match is found or the confidence drops below the min
+    :param confidence: float between 0.5 (low confidence) and 1.0 (exact match) - Default: 1.0
+    :param min_confidence: float between 0.5 (low confidence) and 1.0 (exact match) - Default 0.7
+        this is the minimum confidence threshold before deciding that the current screen can't be determined
+    :param confidence_interval: float between 0.01 and 0.5 - Default: 0.05
+        how much to decrement the confidence interval by between runs
+    :param sleep_interval: float >= 0.0 - Default: 0.5
+        how long (in seconds) to sleep between runs
+    :return: CurrentScreen
+        if the screen is confidently determined the enum for that screen is returned. Otherwise, CurrentScreen.NONE
+    """
+    # screenshot is the image, screen is the corresponding CurrentScreen enum
+    for screenshot, screen in SCREENSHOTS.items():
+        if locate_center(screenshot, confidence):
+            return screen
+    # if we haven't reached the minimum confidence then sleep for a bit and iterate through once more
+    if (confidence := confidence-confidence_interval) > min_confidence:
+        time.sleep(sleep_interval)
+        return get_screen(confidence, min_confidence, confidence_interval, sleep_interval)
     return CurrentScreen.NONE
 
 
@@ -133,7 +164,7 @@ def run_kqb(kill_if_running: bool = True, try_n_times: int = 3):
         time.sleep(0.5)
     if not is_kqb_running() and try_n_times > 0:
         spam_esc()
-        run_kqb(kill_if_running, try_n_times-1)
+        run_kqb(kill_if_running, try_n_times - 1)
     else:
         raise RuntimeError('Cannot start KQB for some reason')
 
@@ -141,10 +172,21 @@ def run_kqb(kill_if_running: bool = True, try_n_times: int = 3):
 def locate_center(image_filename: str, confidence: float = 0.8, image_dir: str = 'KQB Screenshots'):
     if image_dir:
         image_filename = path.join(image_dir, image_filename)
-    return pyautogui.locateCenterOnScreen(image_filename, confidence=confidence)
+    try:
+        return pyautogui.locateCenterOnScreen(image_filename, confidence=confidence)
+    except pyautogui.ImageNotFoundException:
+        return None
+    except Exception as e:
+        raise e
 
 
-def nav_screens(target_screen: CurrentScreen, sleep_secs: int = 30):
+def esc_sleep_decrement(sleep_secs: float, sleep_interval: float):
+    spam_esc()
+    time.sleep(sleep_interval)
+    return sleep_secs - sleep_interval
+
+
+def nav_screens(target_screen: CurrentScreen, sleep_secs: float = 30.0, sleep_interval: float = 0.5):
     if target_screen == CurrentScreen.NONE:
         raise ValueError(f'target_screen cannot be CurrentScreen.NONE')
 
@@ -157,7 +199,39 @@ def nav_screens(target_screen: CurrentScreen, sleep_secs: int = 30):
     match curr_screen:
         case CurrentScreen.MAIN_SCREEN:
             spam_left_then_down()
-            
+            spam_key('up', 5)
+            if locate_center('KQB001a-online-focused.png'):
+                pyautogui.press(' ')
+            else:
+                # tab opens the "friends" menu tab again closes it
+                spam_key('tab', 2)
+                # spam esc just in case the "friends" menu is still open
+                spam_esc()
+                sleep_secs = esc_sleep_decrement(sleep_secs, sleep_interval)
+        case CurrentScreen.ONLINE_SCREEN:
+            if target_screen != CurrentScreen.MAIN_SCREEN:
+                spam_left_then_down()
+                pyautogui.press('up')
+                if locate_center('KQB002a-custom-focused.png'):
+                    pyautogui.press(' ')
+                else:
+                    sleep_secs = esc_sleep_decrement(sleep_secs, sleep_interval)
+            else:
+                sleep_secs = esc_sleep_decrement(sleep_secs, sleep_interval)
+        case CurrentScreen.CUSTOM_SCREEN:
+            if target_screen not in (CurrentScreen.MAIN_SCREEN, CurrentScreen.ONLINE_SCREEN):
+                spam_left_then_down()
+                pyautogui.press('up')
+                if locate_center('KQB003a-spectate-focused.png'):
+                    pyautogui.press(' ')
+                else:
+                    sleep_secs = esc_sleep_decrement(sleep_secs, sleep_interval)
+            else:
+                sleep_secs = esc_sleep_decrement(sleep_secs, sleep_interval)
+
+    if sleep_secs > 0:
+        return nav_screens(target_screen, sleep_secs, sleep_interval)
+    return False
 
 
 def spectate_match(spectate_code: str, sleep_secs: int = 30, sleep_interval: float = 0.5):
@@ -175,8 +249,10 @@ def spectate_match(spectate_code: str, sleep_secs: int = 30, sleep_interval: flo
         print(f'{sleep_secs=}  {curr_screen=}')
     print(f'{curr_screen=}')
 
-    if location := locate_center('KQB004-enter-key.png', confidence=0.8):
-        print(f'Key entry dialog found at {location=}')
+    if nav_screens(CurrentScreen.ENTER_KEY):
+        spam_key('right')
+        spam_key('backspace')
+        pyautogui.write(spectate_code, interval=0.05)
 
 
 if __name__ == '__main__':
