@@ -257,25 +257,4 @@ def spectate_match(spectate_code: str, sleep_secs: int = 30, sleep_interval: flo
 
 if __name__ == '__main__':
     pyautogui.PAUSE = 0.1
-    spectate_match('xxxxxx')
-    # print(type(win32gui.GetForegroundWindow()))
-    # running = pyautogui.locateCenterOnScreen('KQB Screenshots/WIN001a_kqb-running-focused.png')
-    # print(running)
-    # if not running:
-    #     running = pyautogui.locateCenterOnScreen('KQB Screenshots/WIN001b_kqb-running-not-focused.png', confidence=0.8)
-    # print(running)
-    # if running:
-    #     window_focus = None
-    #     while not window_focus:
-    #         print(window_focus)
-    #         window_focus = pyautogui.locateCenterOnScreen('KQB Screenshots/WIN002_kqb-top-bar.png')
-    #         if not window_focus:
-    #             pyautogui.click(x=running[0], y=running[1])
-    #     print(window_focus)
-    #     pyautogui.click(x=window_focus[0], y=window_focus[1])
-    #     window_focus = pyautogui.locateOnScreen('KQB Screenshots/WIN002_kqb-top-bar.png', confidence=0.8)
-    #     print(window_focus)
-    #     move_x = window_focus[0] + 100
-    #     move_y = pyautogui.size()[1] - window_focus[1] - 500
-    #     pyautogui.moveTo(x=move_x, y=move_y, duration=1)
-    #     pyautogui.typewrite(['esc', 'esc', 'esc', 'esc', 'esc', 'esc', 'esc', 'esc', 'esc', 'esc', 'esc', 'esc', 'esc'])
+    spectate_match('XXXXXX')
