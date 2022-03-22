@@ -2,3 +2,4 @@ psutil>=5.9.0
 PyAutoGUI>=0.9.53
 pywin32>=303
 opencv-python>=4.5.5.64
+Pillow>=9.0.1
